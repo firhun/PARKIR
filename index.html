@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#16315C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Parkir AWW">
 <title>Kasir Parkir AWW</title>
 <style>
   :root{
@@ -111,6 +116,7 @@
   .row .info .ph{font-size:13px;color:var(--ink-soft);}
   .row .amt{font-weight:800;flex-shrink:0;color:var(--navy);}
   .row .reprint{background:none;border:none;font-size:19px;color:var(--accent);cursor:pointer;padding:6px;flex-shrink:0;}
+  .row .delrow{background:none;border:none;font-size:17px;cursor:pointer;padding:6px;flex-shrink:0;opacity:.55;}
   .empty{text-align:center;padding:46px 20px;color:var(--ink-soft);}
   .empty .big{font-size:42px;margin-bottom:10px;}
 
@@ -318,6 +324,8 @@
   <p class="sub">Toko aktif: <b id="menuStore">—</b></p>
   <button class="menu-item" onclick="openTarif()"><span class="mic">🏷️</span> Atur tarif parkir toko ini</button>
   <button class="menu-item" onclick="openPrizes()"><span class="mic">🎁</span> Atur hadiah undian toko ini</button>
+  <button class="menu-item" onclick="openCloud()"><span class="mic">☁️</span> Sinkron antar perangkat (Cloud) <span id="cloudBadge" style="margin-left:auto;font-size:12px;font-weight:700">○ Lokal</span></button>
+  <button class="menu-item" onclick="openSecurity()"><span class="mic">🔒</span> Keamanan toko (password)</button>
   <button class="menu-item" onclick="testPrint()"><span class="mic">🖨️</span> Tes cetak struk</button>
   <button class="menu-item" onclick="exportData()"><span class="mic">💾</span> Simpan cadangan data (backup)</button>
   <button class="menu-item" onclick="document.getElementById('importFile').click()"><span class="mic">📂</span> Pulihkan dari cadangan</button>
@@ -345,11 +353,49 @@
   <button class="btn btn-primary" onclick="savePrizes()">Simpan Hadiah</button>
 </div></div>
 
+<!-- MODAL KEAMANAN -->
+<div class="modal-bg" id="secModal"><div class="modal">
+  <button class="close-x" onclick="closeModal('secModal')">×</button>
+  <h2>Keamanan Toko</h2>
+  <p class="sub">Toko: <b id="secStore">—</b>. Password mengunci akses ke data toko ini.</p>
+  <div id="secBody"></div>
+</div></div>
+
+<!-- MODAL CLOUD -->
+<div class="modal-bg" id="cloudModal"><div class="modal">
+  <button class="close-x" onclick="closeModal('cloudModal')">×</button>
+  <h2>Sinkron Cloud</h2>
+  <p class="sub">Tempel <b>konfigurasi Firebase</b> dari project kamu, lalu Simpan. Cukup sekali per perangkat.</p>
+  <div id="cloudStatus" style="font-size:14px;font-weight:600;margin-bottom:12px"></div>
+  <textarea id="cloudCfg" rows="9" placeholder='{
+  "apiKey": "....",
+  "authDomain": "....firebaseapp.com",
+  "projectId": "....",
+  "storageBucket": "....",
+  "messagingSenderId": "....",
+  "appId": "...."
+}' style="width:100%;border:1.5px solid var(--line);border-radius:11px;padding:13px;font-size:13px;font-family:ui-monospace,monospace;background:var(--surface);color:var(--ink);outline:none;resize:vertical"></textarea>
+  <button class="btn btn-primary" style="margin-top:12px" onclick="saveCloudConfig()">Simpan &amp; Sambungkan</button>
+  <button class="btn btn-ghost" style="margin-top:10px" onclick="disconnectCloud()">Putuskan sambungan</button>
+</div></div>
+
+<!-- MODAL KUNCI (LOCK) -->
+<div class="modal-bg" id="lockModal"><div class="modal">
+  <h2>🔒 <span id="lockStore">—</span></h2>
+  <p class="sub">Toko ini terkunci. Masukkan password untuk membuka.</p>
+  <div class="field"><input id="lockInput" type="password" inputmode="numeric" placeholder="password toko"></div>
+  <button class="btn btn-primary" onclick="tryUnlock()">Buka</button>
+  <button class="btn btn-ghost" style="margin-top:10px" onclick="closeModal('lockModal');openStores();">Pilih toko lain</button>
+</div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
 /* ===== DATA ===== */
 const KEY="aww_kasir_parkir_v1";
 const DEFAULT_STORES=["AWW FASHION","AWW ATK","AWW Toko 3","AWW Toko 4","AWW Toko 5","AWW Toko 6","AWW Toko 7"];
-let db, vehType="motor";
+let db, vehType="motor", unlocked={};
 
 function defaultPrizes(){return ["Hadiah Utama","Hadiah ke-2","Hadiah ke-3","Hadiah ke-4","Hadiah ke-5"];}
 function normalizeDB(){
@@ -366,6 +412,94 @@ function load(){
   normalizeDB(); save();
 }
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(db)); }catch(e){ toast("Gagal menyimpan — memori penuh?",true); } }
+
+/* ===== CLOUD (Firebase) ===== */
+const CFG_KEY="aww_fb_config";
+/* Tempel konfigurasi Firebase di sini (opsional) supaya SEMUA perangkat tersambung otomatis.
+   Ganti null dengan objek config, contoh:
+   const HARDCODED_FB = { apiKey:"...", authDomain:"...", projectId:"...", storageBucket:"...", messagingSenderId:"...", appId:"..." };
+*/
+const HARDCODED_FB = null;
+let FB=null, cloudReady=false, entriesUnsub=null, drawsUnsub=null, storesUnsub=null, seeding=false;
+function getCloudConfig(){ if(HARDCODED_FB&&HARDCODED_FB.apiKey)return HARDCODED_FB; try{ return JSON.parse(localStorage.getItem(CFG_KEY)); }catch(e){ return null; } }
+function parseFirebaseConfig(t){
+  const keys=["apiKey","authDomain","projectId","storageBucket","messagingSenderId","appId"];
+  const cfg={};
+  keys.forEach(k=>{ const m=t.match(new RegExp(k+"[\"'`]?\\s*[:=]\\s*[\"'`]([^\"'`]+)[\"'`]")); if(m)cfg[k]=m[1]; });
+  return (cfg.apiKey&&cfg.projectId&&cfg.appId)?cfg:null;
+}
+function storeMeta(s){return {id:s.id,name:s.name,tarif:s.tarif||{motor:0,mobil:0},prizes:s.prizes||defaultPrizes(),passHash:s.passHash||null,seq:s.seq||0};}
+function initCloud(){
+  const cfg=getCloudConfig();
+  if(!cfg){ cloudReady=false; updateCloudBadge(); return; }
+  if(!window.firebase||!firebase.firestore){ cloudReady=false; updateCloudBadge("offline"); return; }
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    FB=firebase.firestore();
+    try{ FB.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(e){}
+    firebase.auth().onAuthStateChanged(user=>{
+      if(user){ cloudReady=true; updateCloudBadge("on"); startStoresListener(); subscribeStoreData(); }
+    });
+    firebase.auth().signInAnonymously().catch(e=>{ updateCloudBadge("err"); toast("Cloud: gagal masuk ("+(e.code||e.message)+")",true); });
+  }catch(e){ cloudReady=false; updateCloudBadge("err"); toast("Cloud error: "+e.message,true); }
+}
+function startStoresListener(){
+  if(!cloudReady||storesUnsub)return;
+  storesUnsub=FB.collection("stores").onSnapshot(async snap=>{
+    if(snap.empty && !seeding){ seeding=true; try{ for(const s of db.stores){ await FB.collection("stores").doc(s.id).set(storeMeta(s)); } }catch(e){} seeding=false; return; }
+    if(snap.empty) return;
+    db.stores=snap.docs.map(d=>d.data());
+    if(!db.stores.find(s=>s.id===db.currentStoreId)) db.currentStoreId=db.stores[0].id;
+    save(); refreshHeader(); updateTotal(); refreshActiveScreen(); ensureUnlocked();
+  }, e=>console.warn("stores listen",e));
+}
+function subscribeStoreData(){
+  if(!cloudReady)return;
+  if(entriesUnsub){entriesUnsub();entriesUnsub=null;}
+  if(drawsUnsub){drawsUnsub();drawsUnsub=null;}
+  entriesUnsub=FB.collection("entries").where("storeId","==",db.currentStoreId).where("month","==",viewMonth).onSnapshot(snap=>{
+    db.entries=snap.docs.map(d=>d.data()); save(); refreshActiveScreen();
+  }, e=>console.warn("entries listen",e));
+  drawsUnsub=FB.collection("draws").where("storeId","==",db.currentStoreId).onSnapshot(snap=>{
+    db.draws=snap.docs.map(d=>d.data()); save(); refreshActiveScreen();
+  }, e=>console.warn("draws listen",e));
+}
+function cloudSetStore(s){ if(cloudReady){ try{ FB.collection("stores").doc(s.id).set(storeMeta(s)); }catch(e){} } }
+function cloudSetEntry(e){ if(cloudReady){ try{ FB.collection("entries").doc(e.id).set(e); }catch(x){} } }
+function cloudDelEntry(id){ if(cloudReady){ try{ FB.collection("entries").doc(id).delete(); }catch(e){} } }
+function cloudSetDraw(d){ if(cloudReady){ try{ FB.collection("draws").doc(d.storeId+"_"+d.month).set(d); }catch(e){} } }
+function refreshActiveScreen(){
+  const a=document.querySelector(".screen.active");
+  if(!a)return;
+  if(a.id==="sc-data")renderData(); else if(a.id==="sc-undi")renderUndi(); else updateTotal();
+}
+function updateCloudBadge(state){
+  const el=document.getElementById("cloudBadge"); if(!el)return;
+  const cfg=getCloudConfig();
+  if(!cfg){ el.textContent="○ Lokal"; el.style.color="var(--ink-soft)"; }
+  else if(state==="on"||cloudReady){ el.textContent="● Cloud aktif"; el.style.color="var(--green)"; }
+  else if(state==="offline"){ el.textContent="○ Cloud (menunggu internet)"; el.style.color="var(--ink-soft)"; }
+  else if(state==="err"){ el.textContent="● Cloud bermasalah"; el.style.color="#C0392B"; }
+  else { el.textContent="○ Menyambung…"; el.style.color="var(--ink-soft)"; }
+}
+function openCloud(){
+  closeModal("menuModal");
+  const cfg=getCloudConfig();
+  document.getElementById("cloudCfg").value = cfg?JSON.stringify(cfg,null,2):"";
+  document.getElementById("cloudStatus").innerHTML = cfg?(cloudReady?"✅ Terhubung ke cloud.":"⏳ Konfigurasi tersimpan, menyambung saat ada internet."):"Belum terhubung. Tempel konfigurasi Firebase di bawah.";
+  openModal("cloudModal");
+}
+function saveCloudConfig(){
+  const cfg=parseFirebaseConfig(document.getElementById("cloudCfg").value);
+  if(!cfg){ toast("Konfigurasi tidak lengkap (apiKey/projectId/appId)",true); return; }
+  localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
+  closeModal("cloudModal"); toast("✓ Konfigurasi disimpan, menyambung…");
+  initCloud();
+}
+function disconnectCloud(){
+  if(!confirm("Putuskan sambungan cloud di perangkat ini? Data lokal tetap aman."))return;
+  localStorage.removeItem(CFG_KEY); location.reload();
+}
 
 let viewMonth=monthKey(new Date());
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
@@ -409,7 +543,7 @@ function payAndPrint(){
   const now=new Date();
   const entry={ id:"e"+Date.now()+Math.random().toString(36).slice(2,5), storeId:db.currentStoreId,
     code, veh:vehType, karcis, nama, hp, amount, ts:now.getTime(), month:monthKey(now) };
-  db.entries.push(entry); save();
+  db.entries.push(entry); save(); cloudSetEntry(entry); cloudSetStore(s);
   buildStruk(entry, s.name); 
   // reset
   document.getElementById("inKarcis").value="";
@@ -446,6 +580,13 @@ function reprint(id){
   buildStruk(e, curStore().name);
   setTimeout(()=>window.print(),150);
 }
+function delEntry(id){
+  const e=db.entries.find(x=>x.id===id); if(!e) return;
+  if(confirm("Hapus transaksi "+e.code+" ("+(e.nama||"tanpa nama")+", "+rupiah(e.amount)+")?")){
+    db.entries=db.entries.filter(x=>x.id!==id); save(); cloudDelEntry(id); renderData();
+    toast("Transaksi dihapus");
+  }
+}
 function testPrint(){
   closeModal("menuModal");
   buildStruk({code:"TES01",veh:"motor",karcis:"00",nama:"",hp:"",amount:(curStore().tarif||{}).motor||0,ts:Date.now(),month:monthKey(new Date())}, curStore().name);
@@ -453,7 +594,7 @@ function testPrint(){
 }
 
 /* ===== DATA ===== */
-function shiftMonth(dir){const[y,m]=viewMonth.split("-").map(Number);viewMonth=monthKey(new Date(y,m-1+dir,1));renderData();renderUndi();}
+function shiftMonth(dir){const[y,m]=viewMonth.split("-").map(Number);viewMonth=monthKey(new Date(y,m-1+dir,1));subscribeStoreData();renderData();renderUndi();}
 function renderData(){
   document.getElementById("dataMonth").textContent=monthLabel(viewMonth);
   document.getElementById("dataStoreLbl").textContent=curStore().name;
@@ -472,6 +613,7 @@ function renderData(){
         <div class="ph mono">${e.code} · ${esc(e.hp||"tanpa HP")} · ${timeStr(e.ts)}</div></div>
       <div class="amt">${rupiah(e.amount)}</div>
       <button class="reprint" onclick="reprint('${e.id}')" title="Cetak ulang">🖨️</button>
+      <button class="delrow" onclick="delEntry('${e.id}')" title="Hapus">🗑️</button>
     </div>`).join("");
 }
 
@@ -558,8 +700,9 @@ function animateReveal(results){
 }
 function finishDraw(results){
   db.draws=db.draws.filter(d=>!(d.storeId===db.currentStoreId&&d.month===viewMonth));
-  db.draws.push({id:"d"+Date.now(),storeId:db.currentStoreId,month:viewMonth,ts:Date.now(),results});
-  save();
+  const __d={id:"d"+Date.now(),storeId:db.currentStoreId,month:viewMonth,ts:Date.now(),results};
+  db.draws.push(__d);
+  save(); cloudSetDraw(__d);
   const btn=document.getElementById("drawBtn"); btn.disabled=false; btn.style.opacity="1"; btn.textContent="🔄 Undi Ulang";
   const h=document.getElementById("revHead"); if(h)h.textContent="🎉 Selesai! Pemenang "+monthLabel(viewMonth);
   document.getElementById("drawActions").style.display="flex";
@@ -609,8 +752,8 @@ function openStores(){
     </button>`).join("");
   openModal("storeModal");
 }
-function pickStore(id){db.currentStoreId=id;save();refreshHeader();updateTotal();closeModal("storeModal");renderData();renderUndi();toast("Pindah ke "+curStore().name);}
-function renameStore(id){const s=db.stores.find(x=>x.id===id);const nn=prompt("Nama toko:",s.name);if(nn&&nn.trim()){s.name=nn.trim();save();openStores();refreshHeader();}}
+function pickStore(id){db.currentStoreId=id;save();refreshHeader();updateTotal();closeModal("storeModal");renderData();renderUndi();toast("Pindah ke "+curStore().name);ensureUnlocked();subscribeStoreData();}
+function renameStore(id){const s=db.stores.find(x=>x.id===id);const nn=prompt("Nama toko:",s.name);if(nn&&nn.trim()){s.name=nn.trim();save();cloudSetStore(s);openStores();refreshHeader();}}
 
 /* ===== TARIF ===== */
 function openTarif(){
@@ -622,9 +765,9 @@ function openTarif(){
   openModal("tarifModal");
 }
 function saveTarif(){
-  const m=parseInt(document.getElementById("tarifMotor").value)||0;
-  const b=parseInt(document.getElementById("tarifMobil").value)||0;
-  curStore().tarif={motor:m,mobil:b};save();updateTotal();closeModal("tarifModal");toast("✓ Tarif disimpan");
+  const m=Math.max(0,parseInt(document.getElementById("tarifMotor").value)||0);
+  const b=Math.max(0,parseInt(document.getElementById("tarifMobil").value)||0);
+  curStore().tarif={motor:m,mobil:b};save();cloudSetStore(curStore());updateTotal();closeModal("tarifModal");toast("✓ Tarif disimpan");
 }
 
 /* ===== HADIAH ===== */
@@ -649,7 +792,54 @@ function removePrizeField(i){ prizeDraft.splice(i,1); renderPrizeFields(); }
 function savePrizes(){
   const clean=prizeDraft.map(p=>(p||"").trim()).filter(Boolean);
   if(!clean.length){toast("Isi minimal 1 hadiah",true);return;}
-  curStore().prizes=clean; save(); closeModal("prizeModal"); renderUndi(); toast("✓ Hadiah disimpan");
+  curStore().prizes=clean; save(); cloudSetStore(curStore()); closeModal("prizeModal"); renderUndi(); toast("✓ Hadiah disimpan");
+}
+
+/* ===== KEAMANAN / PASSWORD ===== */
+async function hashPass(s){
+  try{ if(window.crypto&&crypto.subtle){
+    const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("aww:"+s));
+    return [...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,"0")).join("");
+  }}catch(e){}
+  let h=5381; for(let i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))>>>0;} return "h"+h.toString(16);
+}
+function openSecurity(){ closeModal("menuModal"); document.getElementById("secStore").textContent=curStore().name; renderSecBody(); openModal("secModal"); }
+function renderSecBody(){
+  const has=!!curStore().passHash;
+  document.getElementById("secBody").innerHTML = has
+    ? `<p style="background:var(--green-soft);border:1px solid #C9E9DF;border-radius:11px;padding:12px 14px;font-size:14px;font-weight:600;color:var(--green);margin-bottom:16px">🔒 Toko ini terlindungi password.</p>
+       <div class="field"><label>Password baru</label><input id="secNew" type="password" inputmode="numeric"></div>
+       <div class="field"><label>Ulangi password baru</label><input id="secNew2" type="password" inputmode="numeric"></div>
+       <button class="btn btn-primary" onclick="setPassword()">Ganti Password</button>
+       <button class="btn btn-ghost" style="margin-top:10px" onclick="removePassword()">Hapus Password</button>`
+    : `<div class="field"><label>Buat password</label><input id="secNew" type="password" inputmode="numeric" placeholder="cth: 1234"></div>
+       <div class="field"><label>Ulangi password</label><input id="secNew2" type="password" inputmode="numeric"></div>
+       <button class="btn btn-primary" onclick="setPassword()">Pasang Password</button>`;
+}
+async function setPassword(){
+  const a=document.getElementById("secNew").value, b=document.getElementById("secNew2").value;
+  if(!a){toast("Password masih kosong",true);return;}
+  if(a!==b){toast("Password tidak sama",true);return;}
+  curStore().passHash=await hashPass(a); unlocked[curStore().id]=true; save(); cloudSetStore(curStore());
+  closeModal("secModal"); toast("✓ Password disimpan");
+}
+async function removePassword(){
+  if(!confirm("Hapus password toko "+curStore().name+"?"))return;
+  delete curStore().passHash; save(); cloudSetStore(curStore()); closeModal("secModal"); toast("Password dihapus");
+}
+function ensureUnlocked(){
+  const s=curStore();
+  if(s.passHash && !unlocked[s.id]){
+    document.getElementById("lockStore").textContent=s.name;
+    document.getElementById("lockInput").value="";
+    openModal("lockModal");
+    setTimeout(()=>{try{document.getElementById("lockInput").focus();}catch(e){}},100);
+  }else closeModal("lockModal");
+}
+async function tryUnlock(){
+  const h=await hashPass(document.getElementById("lockInput").value);
+  if(h===curStore().passHash){ unlocked[curStore().id]=true; closeModal("lockModal"); toast("✓ Terbuka"); }
+  else toast("Password salah",true);
 }
 
 /* ===== MENU/BACKUP ===== */
@@ -688,7 +878,8 @@ document.getElementById("inKarcis").addEventListener("keydown",e=>{if(e.key==="E
 document.getElementById("inNama").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("inHp").focus();});
 
 /* ===== INIT ===== */
-load();refreshHeader();updateTotal();
+document.getElementById("lockInput").addEventListener("keydown",e=>{if(e.key==="Enter")tryUnlock();});
+load();refreshHeader();updateTotal();ensureUnlocked();initCloud();
 </script>
 </body>
 </html>
