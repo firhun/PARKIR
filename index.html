@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kasir Parkir AWW</title>
+<style>
+  :root{
+    --bg:#F4F6FA; --surface:#FFFFFF; --paper:#F4F6FA;
+    --ink:#16213A; --ink-soft:#69748B;
+    --line:#E5E9F0; --line-strong:#D5DBE6;
+    --navy:#16315C; --accent:#2D5BE3; --accent-dark:#1E47C4;
+    --blue-soft:#EDF2FE;
+    --green:#138A6E; --green-soft:#E7F5F0;
+    --gold:#C2962C; --slate:#5B6B86;
+    --shadow:0 4px 18px rgba(22,33,58,.06); --r:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:17px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;padding-bottom:96px;
+  }
+  .mono{font-family:ui-monospace,"SF Mono","Roboto Mono",monospace;}
+
+  header{
+    background:var(--surface);color:var(--ink);padding:15px 20px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
+  .brand .logo{width:44px;height:44px;border-radius:12px;background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;letter-spacing:.5px;flex-shrink:0;}
+  .brand .meta{min-width:0;}
+  .brand .meta .lbl{font-size:11px;letter-spacing:.5px;color:var(--ink-soft);font-weight:600;}
+  .brand .meta .store{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .switch-btn{background:var(--blue-soft);color:var(--accent);border:none;padding:10px 15px;border-radius:10px;
+    font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0;}
+  .switch-btn:active{background:#E0E9FD;}
+
+  main{max-width:560px;margin:0 auto;padding:20px;}
+  .screen{display:none;}
+  .screen.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  .month-bar{display:flex;align-items:center;justify-content:space-between;background:var(--surface);
+    border:1px solid var(--line);border-radius:14px;padding:8px 10px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .month-bar button{background:var(--bg);border:1px solid var(--line);border-radius:10px;width:42px;height:42px;font-size:20px;cursor:pointer;color:var(--ink);}
+  .month-bar .m-now{text-align:center;font-weight:700;}
+  .month-bar .m-now small{display:block;font-weight:500;font-size:12px;color:var(--ink-soft);}
+
+  .ticket{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;}
+  .ticket-top{background:var(--surface);color:var(--ink);padding:18px 22px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;}
+  .ticket-top h2{margin:0;font-size:18px;font-weight:700;}
+  .ticket-top .tag{background:var(--navy);color:#fff;font-size:11px;letter-spacing:.5px;font-weight:700;padding:5px 12px;border-radius:20px;text-transform:uppercase;}
+  .perf{display:none;}
+  .ticket-body{padding:22px;}
+
+  .veh-row{display:flex;gap:5px;margin-bottom:22px;background:var(--bg);border-radius:14px;padding:5px;}
+  .veh{flex:1;background:transparent;border:none;border-radius:10px;padding:16px 10px;text-align:center;cursor:pointer;transition:.12s;}
+  .veh .vic{font-size:24px;line-height:1;}
+  .veh .vname{font-weight:700;margin-top:6px;}
+  .veh .vprice{font-size:13px;color:var(--ink-soft);margin-top:2px;font-weight:600;}
+  .veh.on{background:var(--surface);box-shadow:0 2px 8px rgba(22,33,58,.10);}
+  .veh.on .vprice{color:var(--accent);}
+
+  .field{margin-bottom:18px;}
+  .field label{display:block;font-weight:700;font-size:13px;margin-bottom:8px;}
+  .field label .opt{font-weight:500;color:var(--ink-soft);font-size:12.5px;}
+  .field input{width:100%;padding:14px 15px;font-size:16px;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);color:var(--ink);outline:none;transition:border-color .15s;}
+  .field input:focus{border-color:var(--accent);}
+  .field .hint{font-size:12.5px;color:var(--ink-soft);margin-top:6px;}
+  .undi-box{background:var(--blue-soft);border-radius:14px;padding:16px 16px 2px;margin-bottom:20px;}
+  .undi-box .uh{font-size:12px;font-weight:800;color:var(--navy);letter-spacing:.3px;margin-bottom:14px;display:flex;align-items:center;gap:7px;text-transform:uppercase;}
+
+  .total-line{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 20px;}
+  .total-line .tl{color:var(--ink-soft);font-weight:600;font-size:15px;}
+  .total-line .tv{font-size:32px;font-weight:800;color:var(--navy);}
+
+  .btn{width:100%;border:none;border-radius:13px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .05s;}
+  .btn:active{transform:scale(.985);}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(45,91,227,.26);}
+  .btn-primary:active{background:var(--accent-dark);}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1.5px solid var(--line);box-shadow:none;}
+  .btn-green{background:var(--green);color:#fff;}
+
+  .toast{position:fixed;left:50%;bottom:108px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;
+    padding:13px 22px;border-radius:13px;font-weight:600;font-size:15px;opacity:0;pointer-events:none;transition:.3s;z-index:50;
+    display:flex;align-items:center;gap:9px;box-shadow:var(--shadow);max-width:90%;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.err{background:#C0392B;}
+
+  .stat-row{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  .stat{flex:1;min-width:90px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);}
+  .stat.income{background:var(--green-soft);border-color:#C9E9DF;box-shadow:none;}
+  .stat.income .num{color:var(--green);}
+  .stat .num{font-size:26px;font-weight:800;line-height:1.05;color:var(--navy);}
+  .stat .cap{font-size:12px;color:var(--ink-soft);margin-top:5px;}
+  .search{width:100%;padding:13px 15px;font-size:16px;margin-bottom:14px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);outline:none;}
+  .search:focus{border-color:var(--accent);}
+  .list{display:flex;flex-direction:column;gap:9px;}
+  .row{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:13px 15px;display:flex;align-items:center;gap:13px;box-shadow:var(--shadow);}
+  .row .tnum{flex-shrink:0;width:52px;height:52px;border-radius:11px;background:var(--bg);border:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .row .tnum .vic{font-size:18px;line-height:1;}
+  .row .tnum b{font-size:14px;}
+  .row .info{flex:1;min-width:0;}
+  .row .info .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row .info .ph{font-size:13px;color:var(--ink-soft);}
+  .row .amt{font-weight:800;flex-shrink:0;color:var(--navy);}
+  .row .reprint{background:none;border:none;font-size:19px;color:var(--accent);cursor:pointer;padding:6px;flex-shrink:0;}
+  .empty{text-align:center;padding:46px 20px;color:var(--ink-soft);}
+  .empty .big{font-size:42px;margin-bottom:10px;}
+
+  .draw-stage{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:28px 22px;text-align:center;margin-bottom:14px;
+    min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .draw-stage .pretitle{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:14px;}
+  .reel{font-size:26px;font-weight:800;min-height:38px;color:var(--ink);}
+  .reel.spin{color:var(--accent);}
+  .pool-note{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:14px;}
+
+  .prize-preview{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .pp-row{display:flex;align-items:center;gap:10px;padding:8px 9px;font-weight:600;font-size:14.5px;}
+  .pp-row+.pp-row{border-top:1px solid var(--line);}
+  .pp-badge{background:var(--slate);color:#fff;font-weight:800;font-size:12px;padding:5px 9px;border-radius:8px;min-width:46px;text-align:center;flex-shrink:0;}
+  .pp-badge.utama{background:var(--gold);}
+  .pp-empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:12px;}
+  .rev-head{font-size:13px;font-weight:700;letter-spacing:1px;color:var(--ink-soft);text-transform:uppercase;margin-bottom:12px;text-align:center;}
+  .reveal-list{display:flex;flex-direction:column;gap:9px;width:100%;}
+  .win-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px 13px;text-align:left;}
+  .win-row.pop{animation:pop .4s cubic-bezier(.2,1.3,.4,1);}
+  @keyframes pop{from{transform:scale(.85);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .wr-tier{background:var(--slate);color:#fff;font-weight:800;font-size:12px;padding:7px 9px;border-radius:9px;flex-shrink:0;min-width:48px;text-align:center;}
+  .wr-tier.utama{background:var(--gold);}
+  .wr-mid{flex:1;min-width:0;}
+  .wr-prize{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .wr-name{font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .wr-hp{font-size:12.5px;color:var(--ink-soft);flex-shrink:0;}
+  .draw-actions{display:flex;gap:10px;margin-top:12px;}
+  .draw-actions .btn{padding:13px;font-size:15px;}
+  .past-winners{margin-top:14px;}
+  .past-winners h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft);margin:0 0 12px;}
+  .pw-block{margin-bottom:16px;}
+  .pw-mhead{font-weight:700;margin-bottom:8px;}
+  .pw-row{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .pw-month{background:var(--slate);color:#fff;font-weight:700;font-size:12px;padding:5px 9px;border-radius:8px;flex-shrink:0;min-width:46px;text-align:center;}
+  .pw-month.utama{background:var(--gold);}
+  .pw-name{font-weight:700;flex:1;}
+  .pw-ph{font-size:13px;color:var(--ink-soft);}
+
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--surface);border-top:1px solid var(--line);
+    display:flex;max-width:560px;margin:0 auto;padding:8px 6px calc(10px + env(safe-area-inset-bottom));}
+  nav button{flex:1;background:none;border:none;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;
+    color:var(--ink-soft);font-size:11.5px;font-weight:600;border-radius:12px;}
+  nav button .ic{font-size:22px;line-height:1;}
+  nav button.on{color:var(--accent);}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(22,33,58,.45);z-index:60;display:none;align-items:flex-end;justify-content:center;}
+  .modal-bg.show{display:flex;}
+  .modal{background:var(--bg);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:20px;max-height:86vh;overflow:auto;animation:slideup .28s ease;}
+  @keyframes slideup{from{transform:translateY(100%);}to{transform:none;}}
+  .modal h2{margin:4px 0 4px;font-size:21px;}
+  .modal p.sub{margin:0 0 18px;color:var(--ink-soft);font-size:14px;}
+  .store-opt{width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:13px;padding:14px 16px;margin-bottom:10px;
+    font-size:17px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;color:var(--ink);}
+  .store-opt.cur{border-color:var(--accent);background:var(--blue-soft);}
+  .store-opt .chk{color:var(--accent);font-weight:800;}
+  .store-opt .edit{font-size:13px;color:var(--ink-soft);background:none;border:none;padding:6px;}
+  .menu-item{width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:15px 16px;margin-bottom:10px;
+    font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:12px;color:var(--ink);}
+  .menu-item .mic{font-size:20px;}
+  .close-x{background:none;border:none;font-size:26px;color:var(--ink-soft);cursor:pointer;float:right;margin-top:-4px;}
+  .tarif-field{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 16px;margin-bottom:10px;}
+  .tarif-field .tf-ic{font-size:24px;}
+  .tarif-field .tf-lbl{flex:1;font-weight:700;}
+  .tarif-field .tf-rp{color:var(--ink-soft);font-weight:700;}
+  .tarif-field input{width:120px;padding:11px 12px;font-size:17px;border:1.5px solid var(--line);border-radius:10px;text-align:right;background:var(--bg);outline:none;}
+  .tarif-field input:focus{border-color:var(--accent);}
+  .prize-edit{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .pe-badge{background:var(--slate);color:#fff;font-weight:800;font-size:12px;padding:9px 9px;border-radius:9px;min-width:44px;text-align:center;flex-shrink:0;}
+  .pe-badge.utama{background:var(--gold);}
+  .prize-edit input{flex:1;min-width:0;padding:12px 14px;font-size:16px;border:1.5px solid var(--line);border-radius:11px;background:var(--surface);outline:none;}
+  .prize-edit input:focus{border-color:var(--accent);}
+  .pe-del{background:none;border:none;font-size:18px;color:#C0392B;cursor:pointer;padding:6px;flex-shrink:0;}
+
+  /* ====== STRUK (cetak) ====== */
+  #strukWrap{position:fixed;left:-9999px;top:0;}
+  #struk{width:280px;background:#fff;color:#000;font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;line-height:1.5;padding:8px 10px;}
+  #struk .s-center{text-align:center;}
+  #struk .s-big{font-size:20px;font-weight:800;letter-spacing:1px;}
+  #struk .s-store{font-weight:700;font-size:14px;}
+  #struk .s-title{font-weight:700;margin:6px 0;letter-spacing:2px;}
+  #struk .s-hr{border-top:1px dashed #000;margin:7px 0;}
+  #struk .s-line{display:flex;justify-content:space-between;gap:8px;}
+  #struk .s-tot{display:flex;justify-content:space-between;font-size:16px;font-weight:800;}
+  #struk .s-lunas{text-align:center;font-weight:800;font-size:16px;border:2px solid #000;border-radius:6px;padding:4px;margin:8px 0;letter-spacing:3px;}
+  #struk .s-code{text-align:center;font-size:18px;font-weight:800;letter-spacing:2px;}
+  #struk .s-note{font-size:11px;text-align:center;margin-top:4px;}
+  @media print{
+    @page{size:58mm auto;margin:0;}
+    body{padding:0;background:#fff;}
+    body *{visibility:hidden;}
+    #strukWrap,#strukWrap *{visibility:visible;}
+    #strukWrap{position:absolute;left:0;top:0;}
+    #struk{width:58mm;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">AWW</div>
+    <div class="meta"><div class="lbl">Kasir Parkir</div><div class="store" id="hdrStore">—</div></div>
+  </div>
+  <button class="switch-btn" onclick="openStores()">Ganti Toko</button>
+</header>
+
+<main>
+  <!-- ===== KASIR ===== -->
+  <section class="screen active" id="sc-kasir">
+    <div class="ticket">
+      <div class="ticket-top"><h2>Bayar Parkir</h2><span class="tag">Kasir</span></div>
+      <div class="perf"></div>
+      <div class="ticket-body">
+        <div class="veh-row">
+          <button class="veh on" id="vehMotor" onclick="pickVeh('motor')">
+            <div class="vic">🛵</div><div class="vname">Motor</div><div class="vprice" id="priceMotor">Rp0</div>
+          </button>
+          <button class="veh" id="vehMobil" onclick="pickVeh('mobil')">
+            <div class="vic">🚗</div><div class="vname">Mobil</div><div class="vprice" id="priceMobil">Rp0</div>
+          </button>
+        </div>
+        <div class="field">
+          <label for="inKarcis">Nomor Karcis</label>
+          <input id="inKarcis" type="text" inputmode="numeric" autocomplete="off" placeholder="nomor karcis yang disodorkan">
+        </div>
+        <div class="undi-box">
+          <div class="uh">🎁 Daftar undian <span style="font-weight:500">(boleh dikosongkan)</span></div>
+          <div class="field"><label for="inNama">Nama <span class="opt">— opsional</span></label>
+            <input id="inNama" type="text" autocomplete="off" placeholder="cth: Bu Rina"></div>
+          <div class="field"><label for="inHp">Nomor HP <span class="opt">— opsional</span></label>
+            <input id="inHp" type="tel" inputmode="numeric" autocomplete="off" placeholder="cth: 0812xxxxxxx"></div>
+        </div>
+        <div class="total-line"><span class="tl">Total bayar</span><span class="tv" id="totalView">Rp0</span></div>
+        <button class="btn btn-primary" onclick="payAndPrint()">💳 Bayar &amp; Cetak Struk</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DATA ===== -->
+  <section class="screen" id="sc-data">
+    <div class="month-bar">
+      <button onclick="shiftMonth(-1)">‹</button>
+      <div class="m-now"><span id="dataMonth">—</span><small id="dataStoreLbl">—</small></div>
+      <button onclick="shiftMonth(1)">›</button>
+    </div>
+    <div class="stat-row">
+      <div class="stat income"><div class="num" id="statIncome">Rp0</div><div class="cap">Pendapatan parkir</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="num" id="statTrx">0</div><div class="cap">Transaksi</div></div>
+      <div class="stat"><div class="num" id="statUndi">0</div><div class="cap">Ikut undian</div></div>
+    </div>
+    <input class="search" id="searchBox" placeholder="Cari nama / nomor HP / karcis…" oninput="renderData()">
+    <div class="list" id="dataList"></div>
+  </section>
+
+  <!-- ===== UNDI ===== -->
+  <section class="screen" id="sc-undi">
+    <div class="month-bar">
+      <button onclick="shiftMonth(-1)">‹</button>
+      <div class="m-now"><span id="undiMonth">—</span><small>Undian bulan ini</small></div>
+      <button onclick="shiftMonth(1)">›</button>
+    </div>
+    <div class="prize-preview" id="prizePreview"></div>
+    <div class="draw-stage" id="drawStage">
+      <div class="pretitle">Pemenang</div><div class="reel">Tekan tombol di bawah</div>
+    </div>
+    <div class="pool-note" id="poolNote"></div>
+    <button class="btn btn-primary" id="drawBtn" onclick="drawWinner()">🎁 Undi Semua Pemenang</button>
+    <div class="draw-actions" id="drawActions" style="display:none">
+      <button class="btn btn-ghost" onclick="printWinners()">🖨️ Cetak</button>
+      <button class="btn btn-ghost" onclick="copyWinners()">📋 Salin</button>
+    </div>
+    <div class="past-winners" id="pastWinners" style="display:none">
+      <h3>Pemenang sebelumnya</h3><div id="pwList"></div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" id="nav-kasir" onclick="go('kasir')"><span class="ic">💳</span>Kasir</button>
+  <button id="nav-data" onclick="go('data')"><span class="ic">📋</span>Data</button>
+  <button id="nav-undi" onclick="go('undi')"><span class="ic">🎁</span>Undi</button>
+  <button id="nav-menu" onclick="openMenu()"><span class="ic">⚙️</span>Menu</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!-- struk untuk dicetak -->
+<div id="strukWrap"><div id="struk"></div></div>
+
+<!-- MODAL STORES -->
+<div class="modal-bg" id="storeModal"><div class="modal">
+  <button class="close-x" onclick="closeModal('storeModal')">×</button>
+  <h2>Pilih Toko</h2>
+  <p class="sub">Data, tarif & undian tiap toko terpisah. Tekan ✎ untuk ganti nama.</p>
+  <div id="storeOpts"></div>
+</div></div>
+
+<!-- MODAL MENU -->
+<div class="modal-bg" id="menuModal"><div class="modal">
+  <button class="close-x" onclick="closeModal('menuModal')">×</button>
+  <h2>Menu</h2>
+  <p class="sub">Toko aktif: <b id="menuStore">—</b></p>
+  <button class="menu-item" onclick="openTarif()"><span class="mic">🏷️</span> Atur tarif parkir toko ini</button>
+  <button class="menu-item" onclick="openPrizes()"><span class="mic">🎁</span> Atur hadiah undian toko ini</button>
+  <button class="menu-item" onclick="testPrint()"><span class="mic">🖨️</span> Tes cetak struk</button>
+  <button class="menu-item" onclick="exportData()"><span class="mic">💾</span> Simpan cadangan data (backup)</button>
+  <button class="menu-item" onclick="document.getElementById('importFile').click()"><span class="mic">📂</span> Pulihkan dari cadangan</button>
+  <button class="menu-item" onclick="exportPhones()"><span class="mic">📞</span> Salin nomor HP peserta undian</button>
+  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+</div></div>
+
+<!-- MODAL TARIF -->
+<div class="modal-bg" id="tarifModal"><div class="modal">
+  <button class="close-x" onclick="closeModal('tarifModal')">×</button>
+  <h2>Tarif Parkir</h2>
+  <p class="sub">Khusus toko: <b id="tarifStore">—</b>. Kosongkan/0 kalau gratis.</p>
+  <div class="tarif-field"><span class="tf-ic">🛵</span><span class="tf-lbl">Motor</span><span class="tf-rp">Rp</span><input id="tarifMotor" type="tel" inputmode="numeric"></div>
+  <div class="tarif-field"><span class="tf-ic">🚗</span><span class="tf-lbl">Mobil</span><span class="tf-rp">Rp</span><input id="tarifMobil" type="tel" inputmode="numeric"></div>
+  <button class="btn btn-primary" style="margin-top:8px" onclick="saveTarif()">Simpan Tarif</button>
+</div></div>
+
+<!-- MODAL HADIAH -->
+<div class="modal-bg" id="prizeModal"><div class="modal">
+  <button class="close-x" onclick="closeModal('prizeModal')">×</button>
+  <h2>Hadiah Undian</h2>
+  <p class="sub">Toko: <b id="prizeStore">—</b>. Urutan dari atas = tingkatan hadiah (paling atas Hadiah Utama).</p>
+  <div id="prizeFields"></div>
+  <button class="btn btn-ghost" style="margin-bottom:10px" onclick="addPrizeField()">＋ Tambah hadiah</button>
+  <button class="btn btn-primary" onclick="savePrizes()">Simpan Hadiah</button>
+</div></div>
+
+<script>
+/* ===== DATA ===== */
+const KEY="aww_kasir_parkir_v1";
+const DEFAULT_STORES=["AWW FASHION","AWW ATK","AWW Toko 3","AWW Toko 4","AWW Toko 5","AWW Toko 6","AWW Toko 7"];
+let db, vehType="motor";
+
+function defaultPrizes(){return ["Hadiah Utama","Hadiah ke-2","Hadiah ke-3","Hadiah ke-4","Hadiah ke-5"];}
+function normalizeDB(){
+  if(!db.entries)db.entries=[];
+  if(!db.draws)db.draws=[];
+  (db.stores||[]).forEach(s=>{ if(!s.tarif)s.tarif={motor:2000,mobil:5000}; if(s.seq==null)s.seq=0; if(!s.prizes||!s.prizes.length)s.prizes=defaultPrizes(); });
+}
+function load(){
+  try{ db=JSON.parse(localStorage.getItem(KEY)); }catch(e){ db=null; }
+  if(!db||!db.stores){
+    db={ stores:DEFAULT_STORES.map((n,i)=>({id:"s"+(i+1),name:n,tarif:{motor:2000,mobil:5000},seq:0,prizes:defaultPrizes()})),
+      currentStoreId:"s1", entries:[], draws:[] };
+  }
+  normalizeDB(); save();
+}
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(db)); }catch(e){ toast("Gagal menyimpan — memori penuh?",true); } }
+
+let viewMonth=monthKey(new Date());
+function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function monthLabel(mk){const[y,m]=mk.split("-");const n=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];return n[+m-1]+" "+y;}
+function shortMonth(mk){const[y,m]=mk.split("-");const n=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];return n[+m-1]+" '"+y.slice(2);}
+function curStore(){return db.stores.find(s=>s.id===db.currentStoreId)||db.stores[0];}
+function curEntries(){return db.entries.filter(e=>e.storeId===db.currentStoreId&&e.month===viewMonth);}
+function rupiah(n){return "Rp"+(n||0).toLocaleString("id-ID");}
+
+/* ===== NAV ===== */
+function go(tab){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("sc-"+tab).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("on"));
+  document.getElementById("nav-"+tab).classList.add("on");
+  if(tab==="data")renderData();
+  if(tab==="undi")renderUndi();
+}
+
+/* ===== KASIR ===== */
+function pickVeh(v){
+  vehType=v;
+  document.getElementById("vehMotor").classList.toggle("on",v==="motor");
+  document.getElementById("vehMobil").classList.toggle("on",v==="mobil");
+  updateTotal();
+}
+function updateTotal(){
+  const t=curStore().tarif||{motor:0,mobil:0};
+  document.getElementById("priceMotor").textContent=rupiah(t.motor);
+  document.getElementById("priceMobil").textContent=rupiah(t.mobil);
+  document.getElementById("totalView").textContent=rupiah(t[vehType]);
+}
+function payAndPrint(){
+  const karcis=document.getElementById("inKarcis").value.trim();
+  const nama=document.getElementById("inNama").value.trim();
+  const hp=document.getElementById("inHp").value.trim();
+  const t=curStore().tarif||{motor:0,mobil:0};
+  const amount=t[vehType]||0;
+  const s=curStore(); s.seq=(s.seq||0)+1;
+  const code="P"+String(s.seq).padStart(4,"0");
+  const now=new Date();
+  const entry={ id:"e"+Date.now()+Math.random().toString(36).slice(2,5), storeId:db.currentStoreId,
+    code, veh:vehType, karcis, nama, hp, amount, ts:now.getTime(), month:monthKey(now) };
+  db.entries.push(entry); save();
+  buildStruk(entry, s.name); 
+  // reset
+  document.getElementById("inKarcis").value="";
+  document.getElementById("inNama").value="";
+  document.getElementById("inHp").value="";
+  toast("✓ "+code+" — "+rupiah(amount));
+  setTimeout(()=>window.print(), 200);
+}
+function buildStruk(e,storeName){
+  const d=new Date(e.ts);
+  const dt=String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear()+" "+
+           String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  const undiLine = e.hp ? `<div class="s-hr"></div><div class="s-note">★ Terdaftar undian bulan ${shortMonth(e.month)} ★<br>${esc(e.nama||"-")} · ${esc(e.hp)}</div>` : "";
+  document.getElementById("struk").innerHTML=`
+    <div class="s-center s-big">AWW</div>
+    <div class="s-center s-store">${esc(storeName)}</div>
+    <div class="s-center s-title">STRUK PARKIR</div>
+    <div class="s-hr"></div>
+    <div class="s-line"><span>No.</span><span>${esc(e.code)}</span></div>
+    <div class="s-line"><span>Tanggal</span><span>${dt}</span></div>
+    <div class="s-line"><span>Kendaraan</span><span>${e.veh==="motor"?"MOTOR":"MOBIL"}</span></div>
+    <div class="s-line"><span>No. Karcis</span><span>${esc(e.karcis||"-")}</span></div>
+    <div class="s-hr"></div>
+    <div class="s-tot"><span>TOTAL</span><span>${rupiah(e.amount)}</span></div>
+    <div class="s-lunas">LUNAS</div>
+    <div class="s-code">${esc(e.code)}</div>
+    ${undiLine}
+    <div class="s-hr"></div>
+    <div class="s-note">Tunjukkan struk ini ke petugas<br>parkir saat keluar.<br>Terima kasih 🙏</div>
+    <br>`;
+}
+function reprint(id){
+  const e=db.entries.find(x=>x.id===id); if(!e) return;
+  buildStruk(e, curStore().name);
+  setTimeout(()=>window.print(),150);
+}
+function testPrint(){
+  closeModal("menuModal");
+  buildStruk({code:"TES01",veh:"motor",karcis:"00",nama:"",hp:"",amount:(curStore().tarif||{}).motor||0,ts:Date.now(),month:monthKey(new Date())}, curStore().name);
+  setTimeout(()=>window.print(),150);
+}
+
+/* ===== DATA ===== */
+function shiftMonth(dir){const[y,m]=viewMonth.split("-").map(Number);viewMonth=monthKey(new Date(y,m-1+dir,1));renderData();renderUndi();}
+function renderData(){
+  document.getElementById("dataMonth").textContent=monthLabel(viewMonth);
+  document.getElementById("dataStoreLbl").textContent=curStore().name;
+  const all=curEntries().slice().reverse();
+  const q=document.getElementById("searchBox").value.trim().toLowerCase();
+  const list=q?all.filter(e=>(e.nama||"").toLowerCase().includes(q)||(e.hp||"").includes(q)||(e.karcis||"").includes(q)):all;
+  document.getElementById("statIncome").textContent=rupiah(all.reduce((a,e)=>a+(e.amount||0),0));
+  document.getElementById("statTrx").textContent=all.length;
+  document.getElementById("statUndi").textContent=all.filter(e=>e.hp).length;
+  const el=document.getElementById("dataList");
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="big">${q?"🔍":"💳"}</div>${q?"Tidak ada yang cocok":"Belum ada transaksi bulan ini."}</div>`;return;}
+  el.innerHTML=list.map(e=>`
+    <div class="row">
+      <div class="tnum"><div class="vic">${e.veh==="motor"?"🛵":"🚗"}</div><b class="mono">${esc(e.karcis||"–")}</b></div>
+      <div class="info"><div class="nm">${esc(e.nama||"(tanpa nama)")} ${e.hp?"🎁":""}</div>
+        <div class="ph mono">${e.code} · ${esc(e.hp||"tanpa HP")} · ${timeStr(e.ts)}</div></div>
+      <div class="amt">${rupiah(e.amount)}</div>
+      <button class="reprint" onclick="reprint('${e.id}')" title="Cetak ulang">🖨️</button>
+    </div>`).join("");
+}
+
+/* ===== UNDI (multi-hadiah berjenjang) ===== */
+function undiPool(){return curEntries().filter(e=>e.hp);}
+function poolNames(){const p=undiPool();return p.length?p.map(e=>e.nama||"(tanpa nama)"):["—"];}
+function curDraw(){return db.draws.find(d=>d.storeId===db.currentStoreId&&d.month===viewMonth);}
+function prizeBadge(tier){return tier===1?"🏆 Utama":("#"+tier);}
+
+function renderUndi(){
+  document.getElementById("undiMonth").textContent=monthLabel(viewMonth);
+  const prizes=curStore().prizes||[];
+  const pool=undiPool();
+  const uniq=new Set(pool.map(e=>e.hp)).size;
+  document.getElementById("poolNote").textContent =
+    pool.length ? (pool.length+" tiket · "+uniq+" peserta · "+prizes.length+" hadiah diperebutkan")
+                : "Belum ada peserta (yang isi nomor HP) bulan ini.";
+  document.getElementById("prizePreview").innerHTML = prizes.length
+    ? prizes.map((p,i)=>`<div class="pp-row"><span class="pp-badge ${i===0?'utama':''}">${prizeBadge(i+1)}</span><span>${esc(p)}</span></div>`).join("")
+    : `<div class="pp-empty">Belum ada hadiah. Atur di Menu → Atur hadiah undian.</div>`;
+
+  const draw=curDraw();
+  const btn=document.getElementById("drawBtn");
+  const actions=document.getElementById("drawActions");
+  if(draw){
+    renderResultsInto(document.getElementById("drawStage"),draw.results);
+    btn.textContent="🔄 Undi Ulang"; actions.style.display="flex";
+  }else{
+    document.getElementById("drawStage").innerHTML=`<div class="pretitle">Pemenang ${monthLabel(viewMonth)}</div><div class="reel">Tekan tombol di bawah untuk mengundi</div>`;
+    btn.textContent="🎁 Undi Semua Pemenang"; actions.style.display="none";
+  }
+  renderPast();
+}
+function winRowHTML(r){
+  return `<div class="win-row"><span class="wr-tier ${r.tier===1?'utama':''}">${prizeBadge(r.tier)}</span>
+    <div class="wr-mid"><div class="wr-prize">${esc(r.prize)}</div><div class="wr-name">${esc(r.nama)}</div></div>
+    <span class="wr-hp mono">${esc(r.hp)}</span></div>`;
+}
+function renderResultsInto(el,results){
+  const filled=results.filter(r=>r.hp), empty=results.filter(r=>!r.hp);
+  el.innerHTML=`<div class="reveal-list">`+filled.map(winRowHTML).join("")+
+    (empty.length?`<div class="pp-empty">${empty.length} hadiah belum ada pemenang (peserta belum cukup)</div>`:"")+`</div>`;
+}
+function drawWinner(){
+  const prizes=curStore().prizes||[];
+  if(!prizes.length){toast("Atur hadiah dulu di Menu",true);return;}
+  let remaining=undiPool().slice();
+  if(!remaining.length){toast("Belum ada peserta undian bulan ini",true);return;}
+  if(curDraw() && !confirm("Undi ulang? Pemenang bulan ini akan diganti.")) return;
+  const btn=document.getElementById("drawBtn"); btn.disabled=true; btn.style.opacity=".5";
+  document.getElementById("drawActions").style.display="none";
+  const results=prizes.map((p,i)=>({tier:i+1,prize:p,nama:null,hp:null}));
+  for(let i=0;i<results.length;i++){
+    if(!remaining.length)break;
+    const pick=remaining[Math.floor(Math.random()*remaining.length)];
+    results[i].nama=pick.nama||"(tanpa nama)"; results[i].hp=pick.hp;
+    remaining=remaining.filter(t=>t.hp!==pick.hp);
+  }
+  animateReveal(results);
+}
+function animateReveal(results){
+  const seq=results.filter(r=>r.hp).reverse(); // Hadiah Utama tampil terakhir
+  const names=poolNames();
+  document.getElementById("drawStage").innerHTML=`<div class="rev-head" id="revHead">Bersiap mengundi…</div><div class="reel spin" id="revReel">…</div><div class="reveal-list" id="revList"></div>`;
+  let i=0;
+  (function spinOne(){
+    if(i>=seq.length){ finishDraw(results); return; }
+    const r=seq[i];
+    document.getElementById("revHead").textContent = r.tier===1?"🏆 Hadiah Utama":r.prize;
+    const reel=document.getElementById("revReel"); reel.style.display="block";
+    let t=0;const tot=10;
+    (function tk(){
+      reel.textContent=names[Math.floor(Math.random()*names.length)];
+      if(++t<tot){ setTimeout(tk,40+t*t*0.7); }
+      else{
+        reel.style.display="none";
+        const div=document.createElement("div"); div.innerHTML=winRowHTML(r);
+        const node=div.firstChild; node.classList.add("pop");
+        document.getElementById("revList").prepend(node);
+        i++; setTimeout(spinOne,450);
+      }
+    })();
+  })();
+}
+function finishDraw(results){
+  db.draws=db.draws.filter(d=>!(d.storeId===db.currentStoreId&&d.month===viewMonth));
+  db.draws.push({id:"d"+Date.now(),storeId:db.currentStoreId,month:viewMonth,ts:Date.now(),results});
+  save();
+  const btn=document.getElementById("drawBtn"); btn.disabled=false; btn.style.opacity="1"; btn.textContent="🔄 Undi Ulang";
+  const h=document.getElementById("revHead"); if(h)h.textContent="🎉 Selesai! Pemenang "+monthLabel(viewMonth);
+  document.getElementById("drawActions").style.display="flex";
+  renderPast();
+}
+function renderPast(){
+  const past=db.draws.filter(d=>d.storeId===db.currentStoreId&&d.month!==viewMonth).sort((a,b)=>b.month.localeCompare(a.month));
+  const box=document.getElementById("pastWinners");
+  if(!past.length){box.style.display="none";return;}
+  box.style.display="block";
+  document.getElementById("pwList").innerHTML=past.map(d=>`
+    <div class="pw-block"><div class="pw-mhead">${monthLabel(d.month)}</div>${
+      d.results.filter(r=>r.hp).map(r=>`<div class="pw-row"><span class="pw-month ${r.tier===1?'utama':''}">${prizeBadge(r.tier)}</span><span class="pw-name">${esc(r.nama)}</span><span class="pw-ph mono">${esc(r.hp)}</span></div>`).join("")
+    }</div>`).join("");
+}
+function copyWinners(){
+  const d=curDraw(); if(!d){toast("Belum ada hasil undian",true);return;}
+  const txt=`Pemenang Undian Parkir ${curStore().name} — ${monthLabel(viewMonth)}\n`+
+    d.results.filter(r=>r.hp).map(r=>`${prizeBadge(r.tier)} ${r.prize}: ${r.nama||"-"} (${r.hp})`).join("\n");
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast("✓ Daftar pemenang disalin"),()=>fallbackCopy(txt));}else fallbackCopy(txt);
+}
+function printWinners(){
+  const d=curDraw(); if(!d){toast("Belum ada hasil undian",true);return;}
+  buildWinnerStruk(d,curStore().name); setTimeout(()=>window.print(),150);
+}
+function buildWinnerStruk(d,storeName){
+  const rows=d.results.filter(r=>r.hp).map(r=>
+    `<div class="s-line"><span>${r.tier===1?"UTAMA":("#"+r.tier)}</span><span>${esc(r.nama||"-")}</span></div>
+     <div class="s-line" style="font-size:11px"><span>${esc(r.prize)}</span><span>${esc(r.hp)}</span></div>`).join('<div class="s-hr"></div>');
+  document.getElementById("struk").innerHTML=`
+    <div class="s-center s-big">AWW</div>
+    <div class="s-center s-store">${esc(storeName)}</div>
+    <div class="s-center s-title">PEMENANG UNDIAN</div>
+    <div class="s-center" style="font-size:12px">${monthLabel(d.month)}</div>
+    <div class="s-hr"></div>${rows}<div class="s-hr"></div>
+    <div class="s-note">Selamat kepada para pemenang!<br>Hubungi ${esc(storeName)} untuk klaim hadiah.</div><br>`;
+}
+
+/* ===== STORES ===== */
+function openStores(){
+  document.getElementById("storeOpts").innerHTML=db.stores.map(s=>`
+    <button class="store-opt ${s.id===db.currentStoreId?'cur':''}" onclick="pickStore('${s.id}')">
+      <span>${esc(s.name)}</span>
+      <span style="display:flex;gap:6px;align-items:center">
+        <span class="edit" onclick="event.stopPropagation();renameStore('${s.id}')">✎</span>
+        ${s.id===db.currentStoreId?'<span class="chk">✓</span>':''}</span>
+    </button>`).join("");
+  openModal("storeModal");
+}
+function pickStore(id){db.currentStoreId=id;save();refreshHeader();updateTotal();closeModal("storeModal");renderData();renderUndi();toast("Pindah ke "+curStore().name);}
+function renameStore(id){const s=db.stores.find(x=>x.id===id);const nn=prompt("Nama toko:",s.name);if(nn&&nn.trim()){s.name=nn.trim();save();openStores();refreshHeader();}}
+
+/* ===== TARIF ===== */
+function openTarif(){
+  closeModal("menuModal");
+  const t=curStore().tarif||{motor:0,mobil:0};
+  document.getElementById("tarifStore").textContent=curStore().name;
+  document.getElementById("tarifMotor").value=t.motor||0;
+  document.getElementById("tarifMobil").value=t.mobil||0;
+  openModal("tarifModal");
+}
+function saveTarif(){
+  const m=parseInt(document.getElementById("tarifMotor").value)||0;
+  const b=parseInt(document.getElementById("tarifMobil").value)||0;
+  curStore().tarif={motor:m,mobil:b};save();updateTotal();closeModal("tarifModal");toast("✓ Tarif disimpan");
+}
+
+/* ===== HADIAH ===== */
+let prizeDraft=[];
+function openPrizes(){
+  closeModal("menuModal");
+  document.getElementById("prizeStore").textContent=curStore().name;
+  prizeDraft=(curStore().prizes||[]).slice();
+  if(!prizeDraft.length)prizeDraft=defaultPrizes();
+  renderPrizeFields(); openModal("prizeModal");
+}
+function renderPrizeFields(){
+  document.getElementById("prizeFields").innerHTML=prizeDraft.map((p,i)=>`
+    <div class="prize-edit">
+      <span class="pe-badge ${i===0?'utama':''}">${i===0?'🏆':('#'+(i+1))}</span>
+      <input value="${esc(p)}" oninput="prizeDraft[${i}]=this.value" placeholder="nama hadiah">
+      <button class="pe-del" onclick="removePrizeField(${i})">🗑</button>
+    </div>`).join("");
+}
+function addPrizeField(){ if(prizeDraft.length>=10){toast("Maksimal 10 hadiah",true);return;} prizeDraft.push("Hadiah ke-"+(prizeDraft.length+1)); renderPrizeFields(); }
+function removePrizeField(i){ prizeDraft.splice(i,1); renderPrizeFields(); }
+function savePrizes(){
+  const clean=prizeDraft.map(p=>(p||"").trim()).filter(Boolean);
+  if(!clean.length){toast("Isi minimal 1 hadiah",true);return;}
+  curStore().prizes=clean; save(); closeModal("prizeModal"); renderUndi(); toast("✓ Hadiah disimpan");
+}
+
+/* ===== MENU/BACKUP ===== */
+function openMenu(){document.getElementById("menuStore").textContent=curStore().name;openModal("menuModal");}
+function exportData(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="backup-parkir-aww-"+monthKey(new Date())+".json";a.click();toast("✓ File cadangan diunduh");
+}
+function importData(ev){
+  const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.stores||!d.entries)throw 0;
+    if(confirm("Ganti semua data dengan isi file cadangan ini?")){db=d;normalizeDB();save();refreshHeader();updateTotal();renderData();renderUndi();closeModal("menuModal");toast("✓ Data dipulihkan");}
+  }catch(e){toast("File cadangan tidak valid",true);}};
+  r.readAsText(f);ev.target.value="";
+}
+function exportPhones(){
+  const list=undiPool();
+  if(!list.length){toast("Belum ada peserta bulan ini",true);return;}
+  const uniq=[...new Map(list.map(e=>[e.hp,e.nama])).entries()];
+  const txt=uniq.map(([hp,nm])=>(nm||"-")+" - "+hp).join("\n");
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast("✓ "+uniq.length+" nomor disalin"),()=>fallbackCopy(txt));}else fallbackCopy(txt);
+}
+function fallbackCopy(txt){const t=document.createElement("textarea");t.value=txt;document.body.appendChild(t);t.select();try{document.execCommand("copy");toast("✓ Nomor disalin");}catch(e){toast("Gagal menyalin",true);}document.body.removeChild(t);}
+
+/* ===== HELPERS ===== */
+function refreshHeader(){document.getElementById("hdrStore").textContent=curStore().name;}
+function openModal(id){document.getElementById(id).classList.add("show");}
+function closeModal(id){document.getElementById(id).classList.remove("show");}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function timeStr(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+let toastT;
+function toast(msg,err){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(err?" err":"");clearTimeout(toastT);toastT=setTimeout(()=>t.className="toast",2200);}
+document.querySelectorAll(".modal-bg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("show");}));
+document.getElementById("inKarcis").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("inNama").focus();});
+document.getElementById("inNama").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("inHp").focus();});
+
+/* ===== INIT ===== */
+load();refreshHeader();updateTotal();
+</script>
+</body>
+</html>
