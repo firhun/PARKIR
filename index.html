@@ -419,7 +419,14 @@ const CFG_KEY="aww_fb_config";
    Ganti null dengan objek config, contoh:
    const HARDCODED_FB = { apiKey:"...", authDomain:"...", projectId:"...", storageBucket:"...", messagingSenderId:"...", appId:"..." };
 */
-const HARDCODED_FB = null;
+const HARDCODED_FB = {
+  apiKey: "AIzaSyDcOJrs-ljl7AdGn6OWW5Tljw1huikENfQ",
+  authDomain: "parkir-aww.firebaseapp.com",
+  projectId: "parkir-aww",
+  storageBucket: "parkir-aww.firebasestorage.app",
+  messagingSenderId: "150695100325",
+  appId: "1:150695100325:web:b62f0c27233951bc68324c"
+};
 let FB=null, cloudReady=false, entriesUnsub=null, drawsUnsub=null, storesUnsub=null, seeding=false;
 function getCloudConfig(){ if(HARDCODED_FB&&HARDCODED_FB.apiKey)return HARDCODED_FB; try{ return JSON.parse(localStorage.getItem(CFG_KEY)); }catch(e){ return null; } }
 function parseFirebaseConfig(t){
