@@ -286,7 +286,7 @@
       <div class="pretitle">Pemenang</div><div class="reel">Tekan tombol di bawah</div>
     </div>
     <div class="pool-note" id="poolNote"></div>
-    <button class="btn btn-primary" id="drawBtn" onclick="drawWinner()">🎁 Undi Semua Pemenang</button>
+    <button class="btn btn-primary" id="drawBtn" onclick="drawStep()">🎁 Undi Semua Pemenang</button>
     <div class="draw-actions" id="drawActions" style="display:none">
       <button class="btn btn-ghost" onclick="printWinners()">🖨️ Cetak</button>
       <button class="btn btn-ghost" onclick="copyWinners()">📋 Salin</button>
@@ -601,7 +601,7 @@ function testPrint(){
 }
 
 /* ===== DATA ===== */
-function shiftMonth(dir){const[y,m]=viewMonth.split("-").map(Number);viewMonth=monthKey(new Date(y,m-1+dir,1));subscribeStoreData();renderData();renderUndi();}
+function shiftMonth(dir){const[y,m]=viewMonth.split("-").map(Number);viewMonth=monthKey(new Date(y,m-1+dir,1));live=null;subscribeStoreData();renderData();renderUndi();}
 function renderData(){
   document.getElementById("dataMonth").textContent=monthLabel(viewMonth);
   document.getElementById("dataStoreLbl").textContent=curStore().name;
@@ -630,6 +630,11 @@ function poolNames(){const p=undiPool();return p.length?p.map(e=>e.nama||"(tanpa
 function curDraw(){return db.draws.find(d=>d.storeId===db.currentStoreId&&d.month===viewMonth);}
 function prizeBadge(tier){return tier===1?"🏆 Utama":("#"+tier);}
 
+function nextPrizeLabel(){
+  if(!live||live.pos>=live.order.length)return null;
+  const tier=live.order[live.pos]+1;
+  return tier===1?"🏆 Hadiah Utama":("Hadiah #"+tier);
+}
 function renderUndi(){
   document.getElementById("undiMonth").textContent=monthLabel(viewMonth);
   const prizes=curStore().prizes||[];
@@ -642,20 +647,31 @@ function renderUndi(){
     ? prizes.map((p,i)=>`<div class="pp-row"><span class="pp-badge ${i===0?'utama':''}">${prizeBadge(i+1)}</span><span>${esc(p)}</span></div>`).join("")
     : `<div class="pp-empty">Belum ada hadiah. Atur di Menu → Atur hadiah undian.</div>`;
 
-  const draw=curDraw();
+  const stage=document.getElementById("drawStage");
   const btn=document.getElementById("drawBtn");
   const actions=document.getElementById("drawActions");
-  if(draw){
-    renderResultsInto(document.getElementById("drawStage"),draw.results);
-    btn.textContent="🔄 Undi Ulang"; actions.style.display="flex";
-  }else{
-    document.getElementById("drawStage").innerHTML=`<div class="pretitle">Pemenang ${monthLabel(viewMonth)}</div><div class="reel">Tekan tombol di bawah untuk mengundi</div>`;
-    btn.textContent="🎁 Undi Semua Pemenang"; actions.style.display="none";
+  const draw=curDraw();
+
+  if(live){
+    const filled=live.results.filter(r=>r.hp).slice().sort((a,b)=>a.tier-b.tier);
+    const sisa=live.order.length-live.pos;
+    stage.innerHTML=`<div class="rev-head">${sisa>0?("🔴 Live · tersisa "+sisa+" hadiah"):"🎉 Semua pemenang sudah keluar"}</div>`+
+      `<div class="reveal-list">${filled.length?filled.map((r,i)=>winRowHTML(r,i===0)).join(""):'<div class="pp-empty">Belum ada yang diundi</div>'}</div>`;
+    const lbl=nextPrizeLabel();
+    if(lbl){ btn.style.display="flex"; btn.disabled=false; btn.style.opacity="1"; btn.textContent="🎁 Undi "+lbl; actions.style.display="none"; }
+    else { btn.style.display="none"; actions.style.display="flex"; }
+  } else if(draw){
+    renderResultsInto(stage,draw.results);
+    btn.style.display="flex"; btn.disabled=false; btn.style.opacity="1"; btn.textContent="🔄 Undi Ulang"; actions.style.display="flex";
+  } else {
+    const startLbl = prizes.length ? (prizes.length===1?"🏆 Hadiah Utama":("Hadiah #"+prizes.length)) : "";
+    stage.innerHTML=`<div class="pretitle">Pemenang ${monthLabel(viewMonth)}</div><div class="reel">Tekan tombol untuk mulai mengundi satu per satu</div>`;
+    btn.style.display="flex"; btn.disabled=false; btn.style.opacity="1"; btn.textContent="🎬 Mulai Undi — "+startLbl; actions.style.display="none";
   }
   renderPast();
 }
-function winRowHTML(r){
-  return `<div class="win-row"><span class="wr-tier ${r.tier===1?'utama':''}">${prizeBadge(r.tier)}</span>
+function winRowHTML(r,pop){
+  return `<div class="win-row${pop?' pop':''}"><span class="wr-tier ${r.tier===1?'utama':''}">${prizeBadge(r.tier)}</span>
     <div class="wr-mid"><div class="wr-prize">${esc(r.prize)}</div><div class="wr-name">${esc(r.nama)}</div></div>
     <span class="wr-hp mono">${esc(r.hp)}</span></div>`;
 }
@@ -664,56 +680,58 @@ function renderResultsInto(el,results){
   el.innerHTML=`<div class="reveal-list">`+filled.map(winRowHTML).join("")+
     (empty.length?`<div class="pp-empty">${empty.length} hadiah belum ada pemenang (peserta belum cukup)</div>`:"")+`</div>`;
 }
-function drawWinner(){
+let live=null;
+function drawStep(){
   const prizes=curStore().prizes||[];
   if(!prizes.length){toast("Atur hadiah dulu di Menu",true);return;}
-  let remaining=undiPool().slice();
-  if(!remaining.length){toast("Belum ada peserta undian bulan ini",true);return;}
-  if(curDraw() && !confirm("Undi ulang? Pemenang bulan ini akan diganti.")) return;
+  // mulai sesi baru bila belum ada
+  if(!live){
+    if(curDraw() && !confirm("Mulai undi ulang dari awal? Pemenang bulan ini akan diganti.")) return;
+    const pool=undiPool();
+    if(!pool.length){toast("Belum ada peserta undian bulan ini",true);return;}
+    live={ results:prizes.map((p,i)=>({tier:i+1,prize:p,nama:null,hp:null})),
+           order:prizes.map((_,i)=>i).reverse(), pos:0, pool:pool.slice() };
+    db.draws=db.draws.filter(d=>!(d.storeId===db.currentStoreId&&d.month===viewMonth)); save();
+  }
+  if(live.pos>=live.order.length){ finishLive(); return; }
+  if(!live.pool.length){ toast("Peserta sudah habis — sisa hadiah tanpa pemenang",true); finishLive(); return; }
+  const idx=live.order[live.pos];
+  const tier=idx+1;
+  const winner=live.pool[Math.floor(Math.random()*live.pool.length)];
+  const names=live.pool.map(e=>e.nama||"(tanpa nama)");
   const btn=document.getElementById("drawBtn"); btn.disabled=true; btn.style.opacity=".5";
   document.getElementById("drawActions").style.display="none";
-  const results=prizes.map((p,i)=>({tier:i+1,prize:p,nama:null,hp:null}));
-  for(let i=0;i<results.length;i++){
-    if(!remaining.length)break;
-    const pick=remaining[Math.floor(Math.random()*remaining.length)];
-    results[i].nama=pick.nama||"(tanpa nama)"; results[i].hp=pick.hp;
-    remaining=remaining.filter(t=>t.hp!==pick.hp);
-  }
-  animateReveal(results);
-}
-function animateReveal(results){
-  const seq=results.filter(r=>r.hp).reverse(); // Hadiah Utama tampil terakhir
-  const names=poolNames();
-  document.getElementById("drawStage").innerHTML=`<div class="rev-head" id="revHead">Bersiap mengundi…</div><div class="reel spin" id="revReel">…</div><div class="reveal-list" id="revList"></div>`;
-  let i=0;
-  (function spinOne(){
-    if(i>=seq.length){ finishDraw(results); return; }
-    const r=seq[i];
-    document.getElementById("revHead").textContent = r.tier===1?"🏆 Hadiah Utama":r.prize;
-    const reel=document.getElementById("revReel"); reel.style.display="block";
-    let t=0;const tot=10;
-    (function tk(){
-      reel.textContent=names[Math.floor(Math.random()*names.length)];
-      if(++t<tot){ setTimeout(tk,40+t*t*0.7); }
-      else{
-        reel.style.display="none";
-        const div=document.createElement("div"); div.innerHTML=winRowHTML(r);
-        const node=div.firstChild; node.classList.add("pop");
-        document.getElementById("revList").prepend(node);
-        i++; setTimeout(spinOne,450);
-      }
-    })();
+  const filled=live.results.filter(r=>r.hp).slice().sort((a,b)=>a.tier-b.tier);
+  const stage=document.getElementById("drawStage");
+  stage.innerHTML=`<div class="rev-head" id="revHead">${tier===1?"🏆 Mengundi Hadiah Utama…":("🔴 Mengundi Hadiah #"+tier+"…")}</div>`+
+    `<div class="reel spin" id="revReel">…</div><div class="reveal-list" id="revList">${filled.map(winRowHTML).join("")}</div>`;
+  const reel=document.getElementById("revReel");
+  let t=0;const tot=14;
+  (function tk(){
+    reel.textContent=names[Math.floor(Math.random()*names.length)];
+    if(++t<tot){ setTimeout(tk,45+t*t*1.15); }
+    else{
+      reel.style.display="none";
+      live.results[idx].nama=winner.nama||"(tanpa nama)";
+      live.results[idx].hp=winner.hp;
+      live.pool=live.pool.filter(x=>x.hp!==winner.hp);
+      live.pos++;
+      persistLive();
+      btn.disabled=false; btn.style.opacity="1";
+      if(live.pos>=live.order.length) setTimeout(finishLive,550);
+      else setTimeout(renderUndi,550);
+    }
   })();
 }
-function finishDraw(results){
-  db.draws=db.draws.filter(d=>!(d.storeId===db.currentStoreId&&d.month===viewMonth));
-  const __d={id:"d"+Date.now(),storeId:db.currentStoreId,month:viewMonth,ts:Date.now(),results};
-  db.draws.push(__d);
-  save(); cloudSetDraw(__d);
-  const btn=document.getElementById("drawBtn"); btn.disabled=false; btn.style.opacity="1"; btn.textContent="🔄 Undi Ulang";
-  const h=document.getElementById("revHead"); if(h)h.textContent="🎉 Selesai! Pemenang "+monthLabel(viewMonth);
-  document.getElementById("drawActions").style.display="flex";
-  renderPast();
+function persistLive(){
+  if(!live)return;
+  const d={id:"d"+Date.now(),storeId:db.currentStoreId,month:viewMonth,ts:Date.now(),results:live.results.map(r=>({tier:r.tier,prize:r.prize,nama:r.nama,hp:r.hp}))};
+  db.draws=db.draws.filter(x=>!(x.storeId===db.currentStoreId&&x.month===viewMonth));
+  db.draws.push(d); save(); cloudSetDraw(d);
+}
+function finishLive(){
+  if(live)persistLive();
+  live=null; renderUndi(); toast("Undian selesai 🎉");
 }
 function renderPast(){
   const past=db.draws.filter(d=>d.storeId===db.currentStoreId&&d.month!==viewMonth).sort((a,b)=>b.month.localeCompare(a.month));
@@ -759,7 +777,7 @@ function openStores(){
     </button>`).join("");
   openModal("storeModal");
 }
-function pickStore(id){db.currentStoreId=id;save();refreshHeader();updateTotal();closeModal("storeModal");renderData();renderUndi();toast("Pindah ke "+curStore().name);ensureUnlocked();subscribeStoreData();}
+function pickStore(id){db.currentStoreId=id;live=null;save();refreshHeader();updateTotal();closeModal("storeModal");renderData();renderUndi();toast("Pindah ke "+curStore().name);ensureUnlocked();subscribeStoreData();}
 function renameStore(id){const s=db.stores.find(x=>x.id===id);const nn=prompt("Nama toko:",s.name);if(nn&&nn.trim()){s.name=nn.trim();save();cloudSetStore(s);openStores();refreshHeader();}}
 
 /* ===== TARIF ===== */
