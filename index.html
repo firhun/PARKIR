@@ -203,6 +203,9 @@
   #struk .s-tot{display:flex;justify-content:space-between;font-size:16px;font-weight:800;}
   #struk .s-lunas{text-align:center;font-weight:800;font-size:16px;border:2px solid #000;border-radius:6px;padding:4px;margin:8px 0;letter-spacing:3px;}
   #struk .s-code{text-align:center;font-size:18px;font-weight:800;letter-spacing:2px;}
+  #struk .s-karcis{text-align:center;border:2px solid #000;border-radius:6px;padding:6px 4px;margin:8px 0;}
+  #struk .s-karcis .kl{font-size:11px;letter-spacing:2px;font-weight:700;}
+  #struk .s-karcis .kv{font-size:34px;font-weight:800;line-height:1.05;}
   #struk .s-note{font-size:11px;text-align:center;margin-top:4px;}
   @media print{
     @page{size:58mm auto;margin:0;}
@@ -572,7 +575,7 @@ function buildStruk(e,storeName){
     <div class="s-line"><span>No.</span><span>${esc(e.code)}</span></div>
     <div class="s-line"><span>Tanggal</span><span>${dt}</span></div>
     <div class="s-line"><span>Kendaraan</span><span>${e.veh==="motor"?"MOTOR":"MOBIL"}</span></div>
-    <div class="s-line"><span>No. Karcis</span><span>${esc(e.karcis||"-")}</span></div>
+    <div class="s-karcis"><div class="kl">NO. KARCIS</div><div class="kv">${esc(e.karcis||"-")}</div></div>
     <div class="s-hr"></div>
     <div class="s-tot"><span>TOTAL</span><span>${rupiah(e.amount)}</span></div>
     <div class="s-lunas">LUNAS</div>
