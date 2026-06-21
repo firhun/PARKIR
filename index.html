@@ -143,7 +143,9 @@
   .wr-mid{flex:1;min-width:0;}
   .wr-prize{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .wr-name{font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .wr-hp{font-size:12.5px;color:var(--ink-soft);flex-shrink:0;}
+  .wr-hp{font-size:12px;color:var(--accent);flex-shrink:0;border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer;white-space:nowrap;background:var(--bg);font-weight:600;}
+  .wr-hp.shown{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink);font-weight:700;letter-spacing:.5px;background:transparent;border-color:transparent;}
+  .hp-hint{font-size:12px;color:var(--ink-soft);text-align:center;margin-top:10px;}
   .draw-actions{display:flex;gap:10px;margin-top:12px;}
   .draw-actions .btn{padding:13px;font-size:15px;}
   .past-winners{margin-top:14px;}
@@ -704,7 +706,8 @@ function renderUndi(){
     const filled=live.results.filter(r=>r.hp).slice().sort((a,b)=>a.tier-b.tier);
     const sisa=live.order.length-live.pos;
     stage.innerHTML=`<div class="rev-head">${sisa>0?("🔴 Live · tersisa "+sisa+" hadiah"):"🎉 Semua pemenang sudah keluar"}</div>`+
-      `<div class="reveal-list">${filled.length?filled.map((r,i)=>winRowHTML(r,i===0)).join(""):'<div class="pp-empty">Belum ada yang diundi</div>'}</div>`;
+      `<div class="reveal-list">${filled.length?filled.map((r,i)=>winRowHTML(r,i===0)).join(""):'<div class="pp-empty">Belum ada yang diundi</div>'}</div>`+
+      (filled.length?`<div class="hp-hint">👆 Ketuk nama pemenang untuk lihat no. HP</div>`:"");
     const lbl=nextPrizeLabel();
     if(lbl){ btn.style.display="flex"; btn.disabled=false; btn.style.opacity="1"; btn.textContent="🎁 Undi "+lbl; actions.style.display="none"; }
     else { btn.style.display="none"; actions.style.display="flex"; }
@@ -719,14 +722,20 @@ function renderUndi(){
   renderPast();
 }
 function winRowHTML(r,pop){
-  return `<div class="win-row${pop?' pop':''}"><span class="wr-tier ${r.tier===1?'utama':''}">${prizeBadge(r.tier)}</span>
+  return `<div class="win-row${pop?' pop':''}" onclick="toggleHp(this)"><span class="wr-tier ${r.tier===1?'utama':''}">${prizeBadge(r.tier)}</span>
     <div class="wr-mid"><div class="wr-prize">${esc(r.prize)}</div><div class="wr-name">${esc(r.nama)}</div></div>
-    <span class="wr-hp mono">${esc(r.hp)}</span></div>`;
+    <span class="wr-hp" data-hp="${esc(r.hp)}">👁️ HP</span></div>`;
+}
+function toggleHp(row){
+  const el=row.querySelector(".wr-hp"); if(!el)return;
+  if(el.classList.contains("shown")){ el.classList.remove("shown"); el.textContent="👁️ HP"; }
+  else { el.classList.add("shown"); el.textContent=el.getAttribute("data-hp")||"-"; }
 }
 function renderResultsInto(el,results){
   const filled=results.filter(r=>r.hp), empty=results.filter(r=>!r.hp);
   el.innerHTML=`<div class="reveal-list">`+filled.map(winRowHTML).join("")+
-    (empty.length?`<div class="pp-empty">${empty.length} hadiah belum ada pemenang (peserta belum cukup)</div>`:"")+`</div>`;
+    (empty.length?`<div class="pp-empty">${empty.length} hadiah belum ada pemenang (peserta belum cukup)</div>`:"")+`</div>`+
+    (filled.length?`<div class="hp-hint">👆 Ketuk nama pemenang untuk lihat / sembunyikan no. HP</div>`:"");
 }
 let live=null;
 function drawStep(){
