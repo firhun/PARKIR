@@ -191,6 +191,27 @@
   .prize-edit input:focus{border-color:var(--accent);}
   .pe-del{background:none;border:none;font-size:18px;color:#C0392B;cursor:pointer;padding:6px;flex-shrink:0;}
 
+  /* ====== LAYAR KUNCI ====== */
+  #lockScreen{position:fixed;inset:0;z-index:200;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px 22px;}
+  #lockScreen.show{display:flex;}
+  #lockScreen .lk-card{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:30px 24px;text-align:center;}
+  #lockScreen .lk-ic{font-size:46px;margin-bottom:4px;}
+  #lockScreen .lk-store{font-size:22px;font-weight:800;}
+  #lockScreen .lk-sub{color:var(--ink-soft);font-size:14px;margin:6px 0 20px;}
+  #lockScreen input{width:100%;padding:15px 16px;font-size:20px;text-align:center;letter-spacing:4px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);outline:none;margin-bottom:14px;}
+  #lockScreen input:focus{border-color:var(--accent);}
+  #storeModal{z-index:220;}
+
+  /* ====== PENDAPATAN PER HARI ====== */
+  .daily-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:4px 6px;margin-bottom:14px;max-height:280px;overflow:auto;}
+  .daily-head{font-size:13px;font-weight:700;color:var(--ink-soft);padding:10px 10px 6px;}
+  .daily-row{display:flex;align-items:center;gap:10px;padding:10px;border-top:1px solid var(--line);}
+  .daily-row.today{background:var(--blue-soft);border-radius:9px;border-top:1px solid transparent;}
+  .dd-date{flex:1;font-weight:600;font-size:14px;}
+  .dd-now{font-size:10px;background:var(--accent);color:#fff;padding:2px 6px;border-radius:6px;font-weight:700;margin-left:6px;}
+  .dd-meta{font-size:12px;color:var(--ink-soft);}
+  .dd-amt{font-weight:800;color:var(--navy);min-width:84px;text-align:right;}
+
   /* ====== STRUK (cetak) ====== */
   #strukWrap{position:fixed;left:-9999px;top:0;}
   #struk{width:280px;background:#fff;color:#000;font-family:ui-monospace,"Roboto Mono",monospace;font-size:13px;line-height:1.5;padding:8px 10px;}
@@ -273,6 +294,7 @@
       <div class="stat"><div class="num" id="statTrx">0</div><div class="cap">Transaksi</div></div>
       <div class="stat"><div class="num" id="statUndi">0</div><div class="cap">Ikut undian</div></div>
     </div>
+    <div id="dailyBox"></div>
     <input class="search" id="searchBox" placeholder="Cari nama / nomor HP / karcis…" oninput="renderData()">
     <div class="list" id="dataList"></div>
   </section>
@@ -382,14 +404,17 @@
   <button class="btn btn-ghost" style="margin-top:10px" onclick="disconnectCloud()">Putuskan sambungan</button>
 </div></div>
 
-<!-- MODAL KUNCI (LOCK) -->
-<div class="modal-bg" id="lockModal"><div class="modal">
-  <h2>🔒 <span id="lockStore">—</span></h2>
-  <p class="sub">Toko ini terkunci. Masukkan password untuk membuka.</p>
-  <div class="field"><input id="lockInput" type="password" inputmode="numeric" placeholder="password toko"></div>
-  <button class="btn btn-primary" onclick="tryUnlock()">Buka</button>
-  <button class="btn btn-ghost" style="margin-top:10px" onclick="closeModal('lockModal');openStores();">Pilih toko lain</button>
-</div></div>
+<!-- LAYAR KUNCI (full-screen, tak bisa ditutup tanpa PIN) -->
+<div id="lockScreen">
+  <div class="lk-card">
+    <div class="lk-ic">🔒</div>
+    <div class="lk-store" id="lockStore">—</div>
+    <p class="lk-sub">Toko terkunci. Masukkan PIN untuk membuka.</p>
+    <input id="lockInput" type="password" inputmode="numeric" placeholder="PIN toko">
+    <button class="btn btn-primary" onclick="tryUnlock()">Buka</button>
+    <button class="btn btn-ghost" style="margin-top:10px" onclick="openStores()">Pilih toko lain</button>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -614,6 +639,7 @@ function renderData(){
   document.getElementById("statIncome").textContent=rupiah(all.reduce((a,e)=>a+(e.amount||0),0));
   document.getElementById("statTrx").textContent=all.length;
   document.getElementById("statUndi").textContent=all.filter(e=>e.hp).length;
+  renderDaily();
   const el=document.getElementById("dataList");
   if(!list.length){el.innerHTML=`<div class="empty"><div class="big">${q?"🔍":"💳"}</div>${q?"Tidak ada yang cocok":"Belum ada transaksi bulan ini."}</div>`;return;}
   el.innerHTML=list.map(e=>`
@@ -625,6 +651,25 @@ function renderData(){
       <button class="reprint" onclick="reprint('${e.id}')" title="Cetak ulang">🖨️</button>
       <button class="delrow" onclick="delEntry('${e.id}')" title="Hapus">🗑️</button>
     </div>`).join("");
+}
+function renderDaily(){
+  const all=curEntries();
+  const box=document.getElementById("dailyBox"); if(!box)return;
+  if(!all.length){ box.innerHTML=""; return; }
+  const byDay={};
+  all.forEach(e=>{ const d=new Date(e.ts); const k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    if(!byDay[k])byDay[k]={total:0,count:0,ts:new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()};
+    byDay[k].total+=e.amount||0; byDay[k].count++; });
+  const days=Object.entries(byDay).sort((a,b)=>b[0].localeCompare(a[0]));
+  const now=new Date();
+  const todayKey=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
+  const hari=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+  const bln=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+  box.innerHTML=`<div class="daily-card"><div class="daily-head">📅 Pendapatan per hari</div>`+
+    days.map(([k,v])=>{ const d=new Date(v.ts);
+      const lbl=hari[d.getDay()]+", "+d.getDate()+" "+bln[d.getMonth()];
+      return `<div class="daily-row${k===todayKey?' today':''}"><div class="dd-date">${lbl}${k===todayKey?'<span class="dd-now">hari ini</span>':''}</div><div class="dd-meta">${v.count} trx</div><div class="dd-amt">${rupiah(v.total)}</div></div>`;
+    }).join("")+`</div>`;
 }
 
 /* ===== UNDI (multi-hadiah berjenjang) ===== */
@@ -857,17 +902,18 @@ async function removePassword(){
 }
 function ensureUnlocked(){
   const s=curStore();
+  const ls=document.getElementById("lockScreen");
   if(s.passHash && !unlocked[s.id]){
     document.getElementById("lockStore").textContent=s.name;
     document.getElementById("lockInput").value="";
-    openModal("lockModal");
+    ls.classList.add("show");
     setTimeout(()=>{try{document.getElementById("lockInput").focus();}catch(e){}},100);
-  }else closeModal("lockModal");
+  }else ls.classList.remove("show");
 }
 async function tryUnlock(){
   const h=await hashPass(document.getElementById("lockInput").value);
-  if(h===curStore().passHash){ unlocked[curStore().id]=true; closeModal("lockModal"); toast("✓ Terbuka"); }
-  else toast("Password salah",true);
+  if(h===curStore().passHash){ unlocked[curStore().id]=true; document.getElementById("lockScreen").classList.remove("show"); toast("✓ Terbuka"); }
+  else { toast("PIN salah",true); document.getElementById("lockInput").value=""; }
 }
 
 /* ===== MENU/BACKUP ===== */
