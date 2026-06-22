@@ -125,6 +125,9 @@
   .draw-stage .pretitle{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:14px;}
   .reel{font-size:26px;font-weight:800;min-height:38px;color:var(--ink);}
   .reel.spin{color:var(--accent);}
+  .reel.big{font-size:42px;color:var(--gold);animation:reelpulse .5s ease-in-out infinite alternate;}
+  @keyframes reelpulse{from{transform:scale(1)}to{transform:scale(1.12)}}
+  .rev-head.hot{color:var(--gold);font-size:15px;}
   .pool-note{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:14px;}
 
   .prize-preview{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;margin-bottom:14px;box-shadow:var(--shadow);}
@@ -798,13 +801,15 @@ function drawStep(){
   document.getElementById("drawActions").style.display="none";
   const filled=live.results.filter(r=>r.hp).slice().sort((a,b)=>a.tier-b.tier);
   const stage=document.getElementById("drawStage");
-  stage.innerHTML=`<div class="rev-head" id="revHead">${tier===1?"🏆 Mengundi Hadiah Utama…":("🔴 Mengundi Hadiah #"+tier+"…")}</div>`+
-    `<div class="reel spin" id="revReel">…</div><div class="reveal-list" id="revList">${filled.map(winRowHTML).join("")}</div>`;
+  const headTxt = tier===1 ? "🥁 HADIAH UTAMA — siapa pemenangnya?! 🏆" : (tier<=3 ? ("🔥 Mengundi Hadiah #"+tier+" — makin tegang!") : ("🔴 Mengundi Hadiah #"+tier+"…"));
+  stage.innerHTML=`<div class="rev-head${tier===1?' hot':''}" id="revHead">${headTxt}</div>`+
+    `<div class="reel spin${tier===1?' big':''}" id="revReel">…</div><div class="reveal-list" id="revList">${filled.map(winRowHTML).join("")}</div>`;
   const reel=document.getElementById("revReel");
-  let t=0;const tot=14;
+  const spin = tier===1 ? {tot:26,c:1.4} : (tier<=3 ? {tot:24,c:1.3} : {tot:22,c:1.3});
+  let t=0;const tot=spin.tot;
   (function tk(){
     reel.textContent=names[Math.floor(Math.random()*names.length)];
-    if(++t<tot){ setTimeout(tk,45+t*t*1.15); }
+    if(++t<tot){ setTimeout(tk,40+t*t*spin.c); }
     else{
       reel.style.display="none";
       live.results[idx].nama=winner.nama||"(tanpa nama)";
