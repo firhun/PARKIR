@@ -581,13 +581,12 @@ function payAndPrint(){
   const entry={ id:"e"+Date.now()+Math.random().toString(36).slice(2,5), storeId:db.currentStoreId,
     code, veh:vehType, karcis, nama, hp, amount, ts:now.getTime(), month:monthKey(now) };
   db.entries.push(entry); save(); cloudSetEntry(entry); cloudSetStore(s);
-  buildStruk(entry, s.name); 
   // reset
   document.getElementById("inKarcis").value="";
   document.getElementById("inNama").value="";
   document.getElementById("inHp").value="";
   toast("✓ "+code+" — "+rupiah(amount));
-  setTimeout(()=>window.print(), 200);
+  cetak(entry, s.name);
 }
 function buildStruk(e,storeName){
   const d=new Date(e.ts);
@@ -612,10 +611,50 @@ function buildStruk(e,storeName){
     <div class="s-note">Tunjukkan struk ini ke petugas<br>parkir saat keluar.<br>Terima kasih 🙏</div>
     <br>`;
 }
+function isAndroid(){ return /android/i.test(navigator.userAgent||""); }
+function pad2(n){ return String(n).padStart(2,"0"); }
+function strukText(e,storeName){
+  const W=32;
+  const cut=s=>String(s).slice(0,W);
+  const center=s=>{ s=cut(s); const t=Math.max(0,Math.floor((W-s.length)/2)); return " ".repeat(t)+s; };
+  const lr=(l,r)=>{ l=String(l); r=String(r); let sp=W-l.length-r.length; if(sp<1)sp=1; return l+" ".repeat(sp)+r; };
+  const d=new Date(e.ts);
+  const dt=pad2(d.getDate())+"/"+pad2(d.getMonth()+1)+"/"+d.getFullYear()+"  "+pad2(d.getHours())+":"+pad2(d.getMinutes());
+  const eq="=".repeat(W), ds="-".repeat(W);
+  let t="";
+  t+=center("AWW")+"\n";
+  t+=center(storeName)+"\n";
+  t+=center("STRUK PARKIR")+"\n";
+  t+=ds+"\n";
+  t+=lr("No.",e.code)+"\n";
+  t+=lr("Tanggal",dt)+"\n";
+  t+=lr("Kendaraan",e.veh==="motor"?"MOTOR":"MOBIL")+"\n";
+  t+=eq+"\n";
+  t+=center("NO. KARCIS")+"\n";
+  t+=center(">>  "+(e.karcis||"-")+"  <<")+"\n";
+  t+=eq+"\n";
+  t+=lr("TOTAL","Rp"+Number(e.amount||0).toLocaleString("id-ID"))+"\n";
+  t+=center("* *  L U N A S  * *")+"\n";
+  if(e.hp){ t+=ds+"\n"; t+=center("Terdaftar undian "+shortMonth(e.month))+"\n"; t+=center((e.nama||"-")+" "+e.hp)+"\n"; }
+  t+=ds+"\n";
+  t+=center("Tunjukkan struk ini ke")+"\n";
+  t+=center("petugas saat keluar.")+"\n";
+  t+=center("Terima kasih")+"\n";
+  t+="\n\n\n";
+  return t;
+}
+function rawbtPrint(text){
+  var S="#Intent;scheme=rawbt;", P="package=ru.a402d.rawbtprinter;end;";
+  window.location.href="intent:"+encodeURI(text)+S+P;
+}
+function cetak(e,storeName){
+  buildStruk(e,storeName);           // tetap render struk di layar (untuk desktop/preview)
+  if(isAndroid()) rawbtPrint(strukText(e,storeName));   // tablet: langsung ke RawBT
+  else setTimeout(()=>window.print(),150);              // desktop: dialog cetak biasa
+}
 function reprint(id){
   const e=db.entries.find(x=>x.id===id); if(!e) return;
-  buildStruk(e, curStore().name);
-  setTimeout(()=>window.print(),150);
+  cetak(e, curStore().name);
 }
 function delEntry(id){
   const e=db.entries.find(x=>x.id===id); if(!e) return;
@@ -626,8 +665,7 @@ function delEntry(id){
 }
 function testPrint(){
   closeModal("menuModal");
-  buildStruk({code:"TES01",veh:"motor",karcis:"00",nama:"",hp:"",amount:(curStore().tarif||{}).motor||0,ts:Date.now(),month:monthKey(new Date())}, curStore().name);
-  setTimeout(()=>window.print(),150);
+  cetak({code:"TES01",veh:"motor",karcis:"00",nama:"",hp:"",amount:(curStore().tarif||{}).motor||0,ts:Date.now(),month:monthKey(new Date())}, curStore().name);
 }
 
 /* ===== DATA ===== */
