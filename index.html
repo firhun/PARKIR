@@ -618,32 +618,32 @@ function isAndroid(){ return /android/i.test(navigator.userAgent||""); }
 function pad2(n){ return String(n).padStart(2,"0"); }
 function strukText(e,storeName){
   const W=32;
-  const cut=s=>String(s).slice(0,W);
-  const center=s=>{ s=cut(s); const t=Math.max(0,Math.floor((W-s.length)/2)); return " ".repeat(t)+s; };
   const lr=(l,r)=>{ l=String(l); r=String(r); let sp=W-l.length-r.length; if(sp<1)sp=1; return l+" ".repeat(sp)+r; };
   const d=new Date(e.ts);
   const dt=pad2(d.getDate())+"/"+pad2(d.getMonth()+1)+"/"+d.getFullYear()+"  "+pad2(d.getHours())+":"+pad2(d.getMinutes());
-  const eq="=".repeat(W), ds="-".repeat(W);
-  let t="";
-  t+=center("AWW")+"\n";
-  t+=center(storeName)+"\n";
-  t+=center("STRUK PARKIR")+"\n";
-  t+=ds+"\n";
+  const ds="-".repeat(W);
+  const ESC="\x1B", GS="\x1D";
+  const C=ESC+"a\x01", L=ESC+"a\x00";      // rata tengah / kiri
+  const B1=ESC+"E\x01", B0=ESC+"E\x00";    // tebal on/off
+  const S2=GS+"!\x11", S0=GS+"!\x00";      // ukuran ganda on/off
+  let t=ESC+"@";                           // reset printer
+  t+=C+B1+"AWW"+B0+"\n";
+  t+=storeName+"\n";
+  t+="STRUK PARKIR\n";
+  t+=L+ds+"\n";
   t+=lr("No.",e.code)+"\n";
   t+=lr("Tanggal",dt)+"\n";
   t+=lr("Kendaraan",e.veh==="motor"?"MOTOR":"MOBIL")+"\n";
-  t+=eq+"\n";
-  t+=center("NO. KARCIS")+"\n";
-  t+=center(">>  "+(e.karcis||"-")+"  <<")+"\n";
-  t+=eq+"\n";
-  t+=lr("TOTAL","Rp"+Number(e.amount||0).toLocaleString("id-ID"))+"\n";
-  t+=center("* *  L U N A S  * *")+"\n";
-  if(e.hp){ t+=ds+"\n"; t+=center("Terdaftar undian "+shortMonth(e.month))+"\n"; t+=center((e.nama||"-")+" "+e.hp)+"\n"; }
   t+=ds+"\n";
-  t+=center("Tunjukkan struk ini ke")+"\n";
-  t+=center("petugas saat keluar.")+"\n";
-  t+=center("Terima kasih")+"\n";
-  t+="\n\n\n";
+  t+=C+"NO. KARCIS\n";
+  t+=B1+S2+(e.karcis||"-")+S0+B0+"\n";     // nomor karcis BESAR + tebal
+  t+=L+ds+"\n";
+  t+=lr("TOTAL","Rp"+Number(e.amount||0).toLocaleString("id-ID"))+"\n";
+  t+=C+B1+"** LUNAS **"+B0+"\n";
+  if(e.hp){ t+=L+ds+"\n"; t+=C+"Terdaftar undian "+shortMonth(e.month)+"\n"; t+=(e.nama||"-")+" "+e.hp+"\n"; }
+  t+=L+ds+"\n";
+  t+=C+"Tunjukkan struk ini ke\npetugas saat keluar.\n"+B1+"Terima kasih\n"+B0;
+  t+=L+"\n\n\n";
   return t;
 }
 function rawbtPrint(text){
